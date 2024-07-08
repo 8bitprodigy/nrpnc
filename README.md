@@ -1,6 +1,4 @@
-
-
-![logo.svg](/home/chris/projects/nim/nrpnc/img/logo.svg)
+![logo.svg](img/logo.svg)
 
 # NRPNC
 
