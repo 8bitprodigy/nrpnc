@@ -160,9 +160,14 @@ proc do_dump_stack(): bool =
     if is_last(): echo "> Stack dumped.\n"
     false
 
+proc do_dup(): bool = 
+    if check_stack(): return true
+    stack.insert(stack[0])
+    if is_last(): echo "> Value ", stack[0], " duplicated.\n"
+
 proc do_pop(): bool = 
     if check_stack(): return true
-    if is_last(): echo "> ", stack[0], " popped from stack.\n"
+    if is_last(): echo "> ", stack[0], " popped from top of the stack.\n"
     stack.delete(0)
     false
 
@@ -175,6 +180,7 @@ proc do_pop_at(): bool =
     if stack.high < index:
         print_error(program_counter, "Given index is out of stack bounds.")
         return true
+    if is_last(): echo ">  Value ", stack[index], " removed from index ", index, " of the stack.\n"
     stack.delete(index)
 
 proc do_quit(): bool = 
@@ -188,7 +194,7 @@ proc do_store_var(): bool =
         print_error(program_counter, "Program ended abruptly; No variable to store to.\n")
         return true
     if is_variable(program_stack[next_instruction]) == false:
-        echo "> Error: Given token is not a valid variable."
+        print_error(program_counter, "Given token is not a valid variable.")
         return true
     let variable = program_stack[next_instruction][0]
     variables[variable] = stack[0]
@@ -330,6 +336,7 @@ var operations : Table[string, proc():bool{.nimcall.}] = {
     
     "clr":   do_clear_screen,
     "ds":    do_dump_stack,
+    "dup":   do_dup,
     "pop":   do_pop,
     "pop@":  do_pop_at,
     "quit":  do_quit

@@ -117,6 +117,8 @@ The following functions are supported:
 
 - `ds` dump the stack, emptying it
 
+- `dup` duplicates the top element of the stack
+
 - `pop` pop  the top element off the stack
 
 - `pop@` pop the element indicated by the top item of the stack from the stack
@@ -133,4 +135,4 @@ The following functions are supported:
 
 - `else` denotes the start of a code block to be executed if a false value is encountered by a preceeding `if` statement.
 
-- `fi` closes an `if/else` statement.
+- `fi` closes an `if/else` statement
