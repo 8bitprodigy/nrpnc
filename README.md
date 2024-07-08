@@ -1,6 +1,6 @@
 ![logo.svg](img/logo.svg)
 
-# NRPNC
+# nRPNc
 
 Reverse Polish Notation calculator written in Nim.
 
