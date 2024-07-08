@@ -33,6 +33,7 @@ var program_stack   : seq[string]
 var program_counter : int
 var answer          : float
 
+const whitespace = ["", "\n"]
 
 const constants = {
     "tau": TAU, 
@@ -42,14 +43,13 @@ const constants = {
 
 var variables: array['A'..'Z', float]
 
+proc print_error(token_index: int, message: string) =
+    echo "> Error in token ", token_index, ": ", message, "\n"
 
 proc check_stack(): bool =
     if 0 < len(stack): return false
     print_error(program_counter, "Error: No values have been entered.")
     true
-
-proc print_error(token_index: int, message: string) =
-    echo "> Error in token ", token_index, ": ", message, "\n"
 
 proc print_head(): bool =
     if check_stack(): return true
@@ -339,8 +339,8 @@ var operations : Table[string, proc():bool{.nimcall.}] = {
     "dup":   do_dup,
     "pop":   do_pop,
     "pop@":  do_pop_at,
-    "quit":  do_quit
-    "sto:":  do_store_var,
+    "quit":  do_quit,
+    "sto:":  do_store_var
     }.toTable 
 
 
@@ -354,6 +354,9 @@ proc evaluate(user_input: var string) =
             index:   int    = program_counter
             token:   string = program_stack[index]
             #is_last: bool   = index == program_stack.high
+        if token in whitespace: 
+            inc(program_counter)
+            continue
         if token in operations:
             err = operations[token]()
         elif token in constants:
@@ -371,7 +374,7 @@ proc evaluate(user_input: var string) =
         if err:
             stack = backup_stack
             return
-        program_counter = program_counter + 1
+        inc(program_counter)
 
 print_title()
 while true:
