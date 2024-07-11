@@ -28,12 +28,14 @@ For more information, please refer to <https://unlicense.org>
 ]#
 import os, math, sequtils, strutils, tables, terminal
 
-var stack           : seq[float]
-var program_stack   : seq[string]
-var program_counter : int
-var answer          : float
+var 
+    stack           : seq[float]
+    program_stack   : seq[string]
+    program_counter : int
+    answer          : float
+    repl_mode       : bool = false
 
-const whitespace = ["", "\n"]
+const whitespace = ["", "\t", "\n"]
 
 const constants = {
     "tau": TAU, 
@@ -75,7 +77,7 @@ proc is_number(s: string): bool =
     except ValueError:
         false
 
-proc is_last(): bool = program_counter == program_stack.high 
+proc is_last(): bool = program_counter == program_stack.high and repl_mode
 
 proc is_variable(s: string): bool = is_char(s) and s[0] in 'A'..'Z'
 
@@ -107,9 +109,7 @@ proc compute_head(op: proc(a, b: float): float): bool =
     let x = stack[1]
     stack.delete(0)
     stack[0] = op(x, y)
-    if is_last()==false: return false
-    discard print_head()
-    false
+    if is_last(): discard print_head()
 # Removes the top element and pushes its result in.
 proc compute_head(op: proc(a:float): float): bool =
     if check_stack(): return true
@@ -344,8 +344,9 @@ var operations : Table[string, proc():bool{.nimcall.}] = {
     }.toTable 
 
 
-proc evaluate(user_input: var string) =
-    program_stack = user_input.split(' ')
+proc evaluate(user_input: seq[string]) =
+    #echo user_input, " | ", len(user_input)
+    program_stack = user_input
     if len(program_stack) == 0: return
     let backup_stack = stack
     var err = false
@@ -376,8 +377,22 @@ proc evaluate(user_input: var string) =
             return
         inc(program_counter)
 
-print_title()
-while true:
-    var input : string = readLine(stdin)
-    evaluate( input )
-    program_counter = 0
+proc repl() =
+    while true:
+        var input : seq[string] = readLine(stdin).split(' ')
+        evaluate( input )
+        program_counter = 0
+
+let args = commandLineParams()
+
+if len(args) > 0:
+    evaluate(args)
+    if len(stack) == 0: quit(0)
+    let product = stack[0]
+    if product mod 1 > 0: echo product
+    else: echo int(product)
+        
+else:
+    repl_mode = true
+    print_title()
+    repl()
