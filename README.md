@@ -136,3 +136,9 @@ The following functions are supported:
 - `else` denotes the start of a code block to be executed if a false value is encountered by a preceeding `if` statement.
 
 - `fi` closes an `if/else` statement
+
+Users can also declare their own functions. Functions are delimted with `{` and `}`. You can delcare a function in the following syntax:
+
+```
+{ <function_name_here> <function body here> }
+```
