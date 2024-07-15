@@ -28,17 +28,25 @@ For more information, please refer to <https://unlicense.org>
 ]#
 import os, math, sequtils, strutils, tables, terminal
 
+
+###############
+#  T Y P E S  #
+###############
 type
     Environment = ref object
         name            : string
         program_stack   : seq[string]
         program_counter : int
         functions       : Table[string, Environment]
-        parent          : ref Environment
+        parent          : Environment
 
+
+###################
+#  G L O B A L S  #
+###################
 var
-    stack           : seq[float]
     repl_mode       : bool = false
+    stack           : seq[float]
     operations      : Table[string, proc(environment: Environment):bool{.nimcall.}]
 
 const whitespace = ["", "\t", "\n"]
@@ -87,7 +95,7 @@ proc is_number(s: string): bool =
 
 #---------------------------------------------------------------------------------------------------
 
-proc is_last(environment: Environment): bool = environment.program_counter == environment.program_stack.high and repl_mode
+proc is_last(environment: Environment): bool = environment.program_counter == environment.program_stack.high and repl_mode and environment.parent == nil
 
 proc is_variable(s: string): bool = is_char(s) and s[0] in 'A'..'Z'
 
@@ -289,7 +297,8 @@ proc do_defun(environment: Environment): bool =
         echo "Function name: ", name
         print_error(environment.program_counter, environment.name, "Function name " & name & " attempts to override a reserved token.")
         return true
-    function.name = name 
+    function.name   = name
+    function.parent = environment
     while counter <= environment.program_stack.high:
         counter.inc()
         let token = environment.program_stack[counter]
@@ -419,6 +428,7 @@ operations = {
 
 
 #---------------------------------------------------------------------------------------------------
+method execute(self: Environment, function: string): bool {.base.}
 
 method evaluate(self: Environment) {.base.} =
     #echo user_input, " | ", len(user_input)
@@ -442,31 +452,43 @@ method evaluate(self: Environment) {.base.} =
         elif is_variable(token):
             stack.insert(variables[token[0]])
             if is_last(self): discard print_head(self)
-        elif token in self.functions:
-            self.functions[token].evaluate()
-        else:
-            if is_number(token):
+        elif is_number(token):
                 stack.insert(parseFloat(token), 0)
-            else: 
+        else:
+            if not self.execute(token):
                 echo "> Syntax error in token, ", index, ": ", token, "\n"
                 err = true
+            else:
+                if is_last(self): discard print_head(self)
         if err:
             stack = backup_stack
             return
         self.program_counter.inc()
     self.program_counter = 0
 
-proc repl() =
-    var environment: Environment = Environment()
-    while true:
-        environment.program_stack = readLine(stdin).split(' ')
-        environment.evaluate()
-        #environment.program_counter = 0
+method execute(self: Environment, function: string): bool {.base.} =
+    if not (function in self.functions):
+        if self.parent != nil: return self.parent.execute(function)
+        else: return false
+    else:
+        self.functions[function].evaluate()
+        return true
 
+
+
+#---------------------------------------------------------------------------------------------------
 
 #############
 #  M A I N  #
 #############
+
+proc repl() =
+    var environment: Environment = Environment()
+    #environment.repl_mode = true
+    while true:
+        environment.program_stack = readLine(stdin).split(' ')
+        environment.evaluate()
+        #environment.program_counter = 0
 
 let args = commandLineParams()
 
