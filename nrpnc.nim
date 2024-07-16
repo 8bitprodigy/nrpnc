@@ -37,7 +37,7 @@ type
         name            : string
         program_stack   : seq[string]
         program_counter : int
-        functions       : Table[string, Environment]
+        definitions     : Table[string, Environment]
         parent          : Environment
 
 
@@ -56,8 +56,6 @@ const constants = {
     "pi": PI, 
     "e": E
     }.toTable
-
-var variables: array['A'..'Z', float]
 
 #---------------------------------------------------------------------------------------------------
 
@@ -97,9 +95,7 @@ proc is_number(s: string): bool =
 
 proc is_last(environment: Environment): bool = environment.program_counter == environment.program_stack.high and repl_mode and environment.parent == nil
 
-proc is_variable(s: string): bool = is_char(s) and s[0] in 'A'..'Z'
-
-proc is_reserved(s: string): bool = s in whitespace and s in operations and s in constants and is_variable(s)
+proc is_reserved(s: string): bool = s in whitespace and s in operations and s in constants
 
 #---------------------------------------------------------------------------------------------------
 
@@ -217,18 +213,22 @@ proc do_quit(environment: Environment): bool =
 
 proc do_store_var(environment: Environment): bool = 
     if check_stack(environment): return true
+    var definition: Environment = Environment()
     let next_instruction = environment.program_counter + 1
     if next_instruction > environment.program_stack.high:
         print_error(environment.program_counter, environment.name, "Program ended abruptly; No variable to store to.\n")
         return true
-    if is_variable(environment.program_stack[next_instruction]) == false:
-        print_error(environment.program_counter, environment.name, "Given token is not a valid variable.")
+    let name = environment.program_stack[next_instruction]
+    if is_reserved(name):
+        echo "Function name: ", name
+        print_error(environment.program_counter, environment.name, "Variable name " & name & " attempts to override a reserved token.")
         return true
-    let variable = environment.program_stack[next_instruction][0]
-    variables[variable] = stack[0]
+    definition.name = name
+    definition.program_stack.add($stack[0])
     stack.delete(0)
+    environment.definitions.add(name, definition)
     environment.program_counter = environment.program_counter + 1
-    if is_last(environment): echo variables[variable], " stored to ", variable
+    if is_last(environment): echo definition.program_stack[0], " stored to ", name
 
 # `if` works by checking if the top element of the stack is zero. If so, it exits, 
 # allowing the program counter to continue down the program stack. If not, it
@@ -291,14 +291,14 @@ proc do_defun(environment: Environment): bool =
         defun_count:   int  = 0
         counter:       int  = environment.program_counter + 1
         close_reached: bool = false
-        function:      Environment = Environment()
+        defintion:     Environment = Environment()
         name:          string = environment.program_stack[counter]
     if is_reserved(name): 
         echo "Function name: ", name
         print_error(environment.program_counter, environment.name, "Function name " & name & " attempts to override a reserved token.")
         return true
-    function.name   = name
-    function.parent = environment
+    defintion.name   = name
+    defintion.parent = environment
     while counter <= environment.program_stack.high:
         counter.inc()
         let token = environment.program_stack[counter]
@@ -308,9 +308,9 @@ proc do_defun(environment: Environment): bool =
                 close_reached = true
                 break
             defun_count.dec()
-        if (token in whitespace) == false: function.program_stack.add(token)
+        if (token in whitespace) == false: defintion.program_stack.add(token)
     if close_reached == false: print_error(environment.program_counter, environment.name, "Function declaration at token " & intToStr(tok_num) & " left unclosed.")
-    environment.functions.add(name, function)
+    environment.definitions.add(name, defintion)
     environment.program_counter = counter
 
 # Does nothing.
@@ -323,6 +323,7 @@ proc do_nop(environment: Environment): bool = false
 
 proc d2r(num: float): float = degToRad[float](num)
 proc sgn(num: float): float = float(sgn[float](num))
+proc r2d(num: float): float = radToDeg[float](num)
 
 proc do_add(environment: Environment)         : bool = compute_head(environment, compute_add)
 proc do_sub(environment: Environment)         : bool = compute_head(environment, compute_sub)
@@ -353,6 +354,7 @@ proc do_gcd(environment: Environment)         : bool = compute_head(environment,
 proc do_hyp(environment: Environment)         : bool = compute_head(environment, hypot)
 proc do_log(environment: Environment)         : bool = compute_head(environment, log10)
 proc do_pow(environment: Environment)         : bool = compute_head(environment, compute_pow)
+proc do_r2d(environment: Environment)         : bool = compute_head(environment, r2d)
 proc do_sec(environment: Environment)         : bool = compute_head(environment, sec)
 proc do_sgn(environment: Environment)         : bool = compute_head(environment, sgn)
 proc do_sin(environment: Environment)         : bool = compute_head(environment, sin)
@@ -362,10 +364,11 @@ proc cumulative_add(environment: Environment) : bool = compute_stack(environment
 proc cumulative_sub(environment: Environment) : bool = compute_stack(environment, compute_sub)
 proc cumulative_mul(environment: Environment) : bool = compute_stack(environment, compute_mul)
 proc cumulative_div(environment: Environment) : bool = compute_stack(environment, compute_div)
-proc apply_mod(environment: Environment)      : bool = apply_stack(environment, compute_mod)
-proc apply_pow(environment: Environment)      : bool = apply_stack(environment, compute_pow)
+proc apply_mod(environment: Environment)      : bool = apply_stack(environment,   compute_mod)
+proc apply_pow(environment: Environment)      : bool = apply_stack(environment,   compute_pow)
 
 operations = {
+    # Standard Operations
     "+"     : do_add,
     "-"     : do_sub,
     "*"     : do_mul,
@@ -373,7 +376,7 @@ operations = {
     "%"     : do_mod,
     "^"     : do_pow,
     "?"     : print_head,
-    
+    # Variadic Operations
     "?..."  : print_stack,
     "++"    : cumulative_add,
     "--"    : cumulative_sub,
@@ -381,14 +384,14 @@ operations = {
     "//"    : cumulative_div,
     "%..."  : apply_mod,
     "^..."  : apply_pow,
-    
+    # Comparison Operations
     "<"     : do_les,
     ">"     : do_mor,
     "<="    : do_leq,
     ">="    : do_meq,
     "=="    : do_eq,
     "!="    : do_neq,
-
+    # Math Functions
     "abs"   : do_abs,
     "atan"  : do_atan,
     "atan2" : do_atan2,
@@ -405,18 +408,19 @@ operations = {
     "gam"   : do_gam,
     "gcd"   : do_gcd,
     "hyp"   : do_hyp,
+    "r2d"   : do_r2d,
     "sec"   : do_sec,
     "sgn"   : do_sgn,
     "sin"   : do_sin,
     "sqrt"  : do_sqrt,
     "tan"   : do_tan,
-
+    # Control Flow
     "if"    : do_if,
     "else"  : do_else,
     "fi"    : do_nop,
     "{"     : do_defun,
     "}"     : do_nop,
-    
+    # Miscelaneous Functions
     "clr"   : do_clear_screen,
     "ds"    : do_dump_stack,
     "dup"   : do_dup,
@@ -428,50 +432,47 @@ operations = {
 
 
 #---------------------------------------------------------------------------------------------------
-method execute(self: Environment, function: string): bool {.base.}
+proc execute(environment: Environment, function: string): bool
 
-method evaluate(self: Environment) {.base.} =
+proc evaluate(environment: Environment) =
     #echo user_input, " | ", len(user_input)
     #program_stack = user_input
-    if len(self.program_stack) == 0: return
+    if len(environment.program_stack) == 0: return
     let backup_stack = stack
     var err = false
-    while self.program_counter <= self.program_stack.high:
+    while environment.program_counter <= environment.program_stack.high:
         let 
-            index:   int    = self.program_counter
-            token:   string = self.program_stack[index]
+            index:   int    = environment.program_counter
+            token:   string = environment.program_stack[index]
             #is_last: bool   = index == program_stack.high
         if token in whitespace: 
-            self.program_counter.inc()
+            environment.program_counter.inc()
             continue
         if token in operations:
-            err = operations[token](self)
+            err = operations[token](environment)
         elif token in constants:
             stack.insert(constants[token])
-            if is_last(self): discard print_head(self)
-        elif is_variable(token):
-            stack.insert(variables[token[0]])
-            if is_last(self): discard print_head(self)
+            if is_last(environment): discard print_head(environment)
         elif is_number(token):
                 stack.insert(parseFloat(token), 0)
         else:
-            if not self.execute(token):
+            if not execute(environment, token):
                 echo "> Syntax error in token, ", index, ": ", token, "\n"
                 err = true
             else:
-                if is_last(self): discard print_head(self)
+                if is_last(environment): discard print_head(environment)
         if err:
             stack = backup_stack
             return
-        self.program_counter.inc()
-    self.program_counter = 0
+        environment.program_counter.inc()
+    environment.program_counter = 0
 
-method execute(self: Environment, function: string): bool {.base.} =
-    if not (function in self.functions):
-        if self.parent != nil: return self.parent.execute(function)
+proc execute(environment: Environment, function: string): bool =
+    if not (function in environment.definitions):
+        if environment.parent != nil: return execute(environment.parent, function)
         else: return false
     else:
-        self.functions[function].evaluate()
+        evaluate(environment.definitions[function])
         return true
 
 
@@ -487,7 +488,7 @@ proc repl() =
     #environment.repl_mode = true
     while true:
         environment.program_stack = readLine(stdin).split(' ')
-        environment.evaluate()
+        evaluate(environment)
         #environment.program_counter = 0
 
 let args = commandLineParams()
@@ -495,7 +496,7 @@ let args = commandLineParams()
 if len(args) > 0:
     var environment: Environment = Environment()
     environment.program_stack = args
-    environment.evaluate()
+    evaluate(environment)
     if len(stack) == 0: quit(0)
     let product = stack[0]
     if product mod 1 > 0: echo product

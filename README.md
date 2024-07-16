@@ -51,9 +51,9 @@ The following operators are supported:
 
 - `^` exponent
 
-### Stack operators:
+### Variadic operators:
 
-`NRPNRC` also has variants to do cumulative operations to the whole stack:
+`NRPNC` also has variants to do cumulative operations to the whole stack:
 
 - `++` sums the whole stack together
 
@@ -95,13 +95,31 @@ The following functions are supported:
 
 - `atan2` arctangent from two arguments
 
+- `atanh` hyperbolic arctangent
+
+- `cbrt`
+
+- `ceil` round a number with decimal up to the next integer
+
 - `cos` cosine
 
 - `cot` cotangent
 
 - `csc` cosecant
 
+- `d2r` convert degrees to radians
+
+- `exp` raise second item down on the stack to power of top item of the stack
+
 - `fac` factorial
+
+- `flr` round a number with decimal down to the previous integer
+
+- `gam` gamma
+
+- `gcd` greatest common denominator between two arguments
+
+- `hyp` hopotenuse of two arguments
 
 - `sec` secant
 
@@ -111,21 +129,23 @@ The following functions are supported:
 
 - `tan` tangent
 
-## Non-math functions:
-
-- `clr` clear screen
+## Stack Manipulation functions:
 
 - `ds` dump the stack, emptying it
 
 - `dup` duplicates the top element of the stack
 
-- `pop` pop  the top element off the stack
+- `pop` pop the top element off the stack
 
 - `pop@` pop the element indicated by the top item of the stack from the stack
 
-- `quit` exits the calculator
+- `sto:` pops the top value from the stack and stores it in the variable declared following the `sto:` command. 
 
-- `sto:` stores the top value from the stack in the variable following the `sto:` command.
+## Miscelaneous functions:
+
+- `clr` clear screen
+
+- `quit` exits the calculator
 
 ## Control flow:
 
@@ -142,3 +162,5 @@ Users can also declare their own functions. Functions are delimted with `{` and 
 ```
 { <function_name_here> <function body here> }
 ```
+
+Functions are able to call functions declared within them, in the same scope as them, or in a parent scope.
